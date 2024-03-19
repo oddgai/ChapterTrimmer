@@ -7,6 +7,7 @@ authors = [
 ]
 dependencies = [
     "flet>=0.21.1",
+    "scenedetect[opencv]>=0.6.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -24,3 +25,9 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/chaptertrimmer"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 120
