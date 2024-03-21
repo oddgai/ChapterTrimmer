@@ -16,6 +16,11 @@ from scenedetect.frame_timecode import FrameTimecode
 from tqdm import tqdm
 
 
+def init_page(page: ft.Page, initial_container: ft.Container):
+    page.clean()
+    page.add(initial_container)
+
+
 def detect_chapter(video_file_path: str) -> list[tuple[FrameTimecode, FrameTimecode]]:
     video = open_video(video_file_path)
     scene_manager = SceneManager()
@@ -36,21 +41,31 @@ def detect_chapter(video_file_path: str) -> list[tuple[FrameTimecode, FrameTimec
 
 
 def save_selected_chapter(
+    page: ft.Page,
     input_video_path: Path,
     chapter_list: list[tuple[FrameTimecode, FrameTimecode]],
     output_dir: Path,
     delete_dir: Path | None = None,
+    on_complete_open_dialog: bool = False,
 ):
     for idx, chapter in tqdm(enumerate(chapter_list)):
         start_time = chapter[0].get_seconds()
         end_time = chapter[1].get_seconds()
-        output_file_path = output_dir.joinpath(f"{input_video_path.stem}_{idx+1:03}{input_video_path.suffix}")
+        output_file_path = output_dir.joinpath(f"{input_video_path.stem}_chapter_{idx+1:03}{input_video_path.suffix}")
         cmd = f'ffmpeg -y -i "{str(input_video_path)}" -ss {start_time} -to {end_time} -c:v copy -c:a copy "{output_file_path}"'
         subprocess.run(cmd)
 
     if delete_dir:
         shutil.rmtree(delete_dir)
-    print(f"saved in {str(output_dir)}")
+
+    if on_complete_open_dialog:
+        complete_dialog = ft.AlertDialog(
+            title=ft.Text(f"Selected Chapter Saved at {str(output_dir)} !"),
+            content=ft.Text("Load other video if necessary"),
+        )
+        page.dialog = complete_dialog
+        complete_dialog.open = True
+        page.update()
 
 
 def main(page: ft.Page):
@@ -63,6 +78,9 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.ADAPTIVE
 
     def load_videos(e: ft.FilePickerResultEvent):
+        # TODO: 2回目以降の読み込みでは前回の出力を削除する
+        init_page(page, file_pick_button)
+
         uploaded_videos = [ft.VideoMedia(f.path) for f in e.files]
 
         original_video = ft.Video(
@@ -91,7 +109,9 @@ def main(page: ft.Page):
         chapter_list = detect_chapter(str(input_video_path))
 
         temp_dir = Path(tempfile.mkdtemp(prefix="chapter-trimmer-"))
-        save_selected_chapter(input_video_path, chapter_list, output_dir=temp_dir)
+        save_selected_chapter(
+            page=page, input_video_path=input_video_path, chapter_list=chapter_list, output_dir=temp_dir
+        )
 
         # chapterに分けた動画を読み込む
         splitted_video_list = []
@@ -123,15 +143,20 @@ def main(page: ft.Page):
         for check_box, splitted_video in zip(check_box_list, splitted_video_list):
             splitted_video_grid.controls.append(ft.Column([check_box, splitted_video]))
 
+        # submitボタンクリックで選択したチャプターの動画を保存する
         page.add(
             ft.Container(
                 content=ft.ElevatedButton(
                     text="Save Selected Chapters",
                     on_click=lambda e: save_selected_chapter(
-                        input_video_path,
-                        [chapter for chapter, tf in zip(chapter_list, [c.value for c in check_box_list]) if tf],
+                        page=page,
+                        input_video_path=input_video_path,
+                        chapter_list=[
+                            chapter for chapter, tf in zip(chapter_list, [c.value for c in check_box_list]) if tf
+                        ],
                         output_dir=input_video_path.parent,
                         delete_dir=temp_dir,
+                        on_complete_open_dialog=True,
                     ),
                 ),
                 margin=20,
@@ -142,13 +167,14 @@ def main(page: ft.Page):
 
     file_picker = ft.FilePicker(on_result=load_videos)
     page.overlay.append(file_picker)
-    page.add(
+    file_pick_button = ft.Container(
         ft.ElevatedButton(
             "Pick Video file",
             icon=ft.icons.UPLOAD_FILE,
             on_click=lambda _: file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.VIDEO),
-        ),
+        )
     )
+    page.add(file_pick_button)
 
 
 ft.app(target=main)
