@@ -4,15 +4,19 @@ import tempfile
 from pathlib import Path
 
 import flet as ft
-from scenedetect import (AdaptiveDetector, ContentDetector, SceneManager,
-                         ThresholdDetector, open_video, split_video_ffmpeg)
+from scenedetect import (
+    AdaptiveDetector,
+    ContentDetector,
+    SceneManager,
+    ThresholdDetector,
+    open_video,
+    split_video_ffmpeg,
+)
 from scenedetect.frame_timecode import FrameTimecode
 from tqdm import tqdm
 
 
 def detect_chapter(video_file_path: str) -> list[tuple[FrameTimecode, FrameTimecode]]:
-    """動画内の真っ黒/真っ白シーンを区切りとしてチャプターを検出する"""
-    print(video_file_path)
     video = open_video(video_file_path)
     scene_manager = SceneManager()
     scene_manager.auto_downscale = True
@@ -28,8 +32,6 @@ def detect_chapter(video_file_path: str) -> list[tuple[FrameTimecode, FrameTimec
 
     scene_manager.detect_scenes(frame_source=video, show_progress=True)
     chapter_list = scene_manager.get_scene_list()
-    for chapter in chapter_list:
-        print(chapter)
     return chapter_list
 
 
@@ -37,23 +39,18 @@ def save_selected_chapter(
     input_video_path: Path,
     chapter_list: list[tuple[FrameTimecode, FrameTimecode]],
     output_dir: Path,
-) -> list[str]:
-    output_file_name_list: list[str] = []
+    delete_dir: Path | None = None,
+):
     for idx, chapter in tqdm(enumerate(chapter_list)):
         start_time = chapter[0].get_seconds()
         end_time = chapter[1].get_seconds()
-        output_file_path = output_dir.joinpath(f"{input_video_path.stem + "_" + str(idx) + input_video_path.suffix}")
-        cmd = f"ffmpeg -y -i {str(input_video_path)} -ss {start_time} -to {end_time} -c:v copy -c:a copy {output_file_path}"
-        print(cmd)
-        subprocess.run(cmd, shell=True)
-        output_file_name_list.append(output_file_path.name)
-    print(f"saved in {output_dir}")
-    return output_file_name_list
+        output_file_path = output_dir.joinpath(f"{input_video_path.stem}_{idx+1:03}{input_video_path.suffix}")
+        cmd = f'ffmpeg -y -i "{str(input_video_path)}" -ss {start_time} -to {end_time} -c:v copy -c:a copy "{output_file_path}"'
+        subprocess.run(cmd)
 
-
-# class ClickableVideoStack(ft.Stack):
-#     def __init__(self, video):
-#         self.video = video
+    if delete_dir:
+        shutil.rmtree(delete_dir)
+    print(f"saved in {str(output_dir)}")
 
 
 def main(page: ft.Page):
@@ -102,7 +99,7 @@ def main(page: ft.Page):
             splitted_video_list.append(
                 ft.Video(
                     aspect_ratio=16 / 9,
-                    autoplay=True,
+                    autoplay=False,
                     filter_quality=ft.FilterQuality.HIGH,
                     playlist=[ft.VideoMedia(str(splitted_file))],
                     playlist_mode=ft.PlaylistMode.SINGLE,
@@ -134,6 +131,7 @@ def main(page: ft.Page):
                         input_video_path,
                         [chapter for chapter, tf in zip(chapter_list, [c.value for c in check_box_list]) if tf],
                         output_dir=input_video_path.parent,
+                        delete_dir=temp_dir,
                     ),
                 ),
                 margin=20,
@@ -141,22 +139,14 @@ def main(page: ft.Page):
             ),
         )
         page.update()
-        # TODO: 最後に一時ディレクトリを削除する
-        # shutil.rmtree(temp_dir)
 
     file_picker = ft.FilePicker(on_result=load_videos)
     page.overlay.append(file_picker)
     page.add(
-        ft.Row(
-            [
-                ft.ElevatedButton(
-                    "Pick Video file",
-                    icon=ft.icons.UPLOAD_FILE,
-                    on_click=lambda _: file_picker.pick_files(
-                        allow_multiple=False, file_type=ft.FilePickerFileType.VIDEO
-                    ),
-                ),
-            ]
+        ft.ElevatedButton(
+            "Pick Video file",
+            icon=ft.icons.UPLOAD_FILE,
+            on_click=lambda _: file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.VIDEO),
         ),
     )
 
