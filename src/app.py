@@ -16,11 +16,6 @@ from scenedetect.frame_timecode import FrameTimecode
 from tqdm import tqdm
 
 
-def init_page(page: ft.Page, initial_container: ft.Container):
-    page.clean()
-    page.add(initial_container)
-
-
 def detect_chapter(video_file_path: str) -> list[tuple[FrameTimecode, FrameTimecode]]:
     video = open_video(video_file_path)
     scene_manager = SceneManager()
@@ -40,46 +35,71 @@ def detect_chapter(video_file_path: str) -> list[tuple[FrameTimecode, FrameTimec
     return chapter_list
 
 
-def save_selected_chapter(
-    page: ft.Page,
-    input_video_path: Path,
-    chapter_list: list[tuple[FrameTimecode, FrameTimecode]],
-    output_dir: Path,
-    delete_dir: Path | None = None,
-    on_complete_open_dialog: bool = False,
-):
-    for idx, chapter in tqdm(enumerate(chapter_list)):
-        start_time = chapter[0].get_seconds()
-        end_time = chapter[1].get_seconds()
-        output_file_path = output_dir.joinpath(f"{input_video_path.stem}_chapter_{idx+1:03}{input_video_path.suffix}")
-        cmd = f'ffmpeg -y -i "{str(input_video_path)}" -ss {start_time} -to {end_time} -c:v copy -c:a copy "{output_file_path}"'
-        subprocess.run(cmd)
-
-    if delete_dir:
-        shutil.rmtree(delete_dir)
-
-    if on_complete_open_dialog:
-        complete_dialog = ft.AlertDialog(
-            title=ft.Text(f"Selected Chapter Saved at {str(output_dir)} !"),
-            content=ft.Text("Load other video if necessary"),
-        )
-        page.dialog = complete_dialog
-        complete_dialog.open = True
-        page.update()
-
-
 def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.title = "ChapterTrimmer"
+    page.title = "Chapter Trimmer"
     page.spacing = 20
     page.padding = 20
     page.window_width = 800
     page.window_height = 1200
     page.scroll = ft.ScrollMode.ADAPTIVE
 
+    def init_page(initial_container: ft.Container):
+        page.clean()
+        page.add(initial_container)
+
+    def save_splitted_chapter(
+        input_video_path: Path,
+        chapter_list: list[tuple[FrameTimecode, FrameTimecode]],
+        output_dir: Path,
+    ) -> list[Path]:
+        splitted_file_path_list = []
+        for idx, chapter in tqdm(enumerate(chapter_list)):
+            start_time = chapter[0].get_seconds()
+            end_time = chapter[1].get_seconds()
+            output_file_path = output_dir.joinpath(
+                f"{input_video_path.stem}_chapter_{idx+1:0{len(str(len(chapter_list)))}}{input_video_path.suffix}"
+            )
+            cmd = f'ffmpeg -y -i "{str(input_video_path)}" -ss {start_time} -to {end_time} -c:v copy -c:a copy "{output_file_path}"'
+            subprocess.run(cmd)
+            splitted_file_path_list.append(output_file_path)
+        return splitted_file_path_list
+
+    def merge_selected_chapter(
+        splitted_file_path_list: list[Path],
+        selected_chapter_list: list[int],
+        original_video_file_path: Path,
+        delete_dir: Path,
+    ):
+        output_file_path = original_video_file_path.parent.joinpath(
+            f"{original_video_file_path.stem}_edit{original_video_file_path.suffix}"
+        )
+        selected_chapter_file_path_list = [splitted_file_path_list[idx] for idx in selected_chapter_list]
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            print(tf.name)
+            with open(tf.name, "w") as f:
+                for file_path in selected_chapter_file_path_list:
+                    f.write(f"file {file_path.as_posix()}\n")
+
+            cmd = f'ffmpeg -y -f concat -safe 0 -i "{tf.name}" -c copy "{output_file_path}"'
+            print(cmd)
+            subprocess.run(cmd)
+
+        # 一時ディレクトリを削除
+        # shutil.rmtree(delete_dir)
+
+        # 完了したらダイアログを表示
+        complete_dialog = ft.AlertDialog(
+            title=ft.Text(f"Trimmed video saved here; {str(output_file_path)}"),
+            content=ft.Text("Load other video if necessary."),
+            on_dismiss=init_page(file_pick_button),
+        )
+        page.dialog = complete_dialog
+        complete_dialog.open = True
+        page.update()
+
     def load_videos(e: ft.FilePickerResultEvent):
-        # TODO: 2回目以降の読み込みでは前回の出力を削除する
-        init_page(page, file_pick_button)
+        init_page(file_pick_button)
 
         uploaded_videos = [ft.VideoMedia(f.path) for f in e.files]
 
@@ -109,8 +129,8 @@ def main(page: ft.Page):
         chapter_list = detect_chapter(str(input_video_path))
 
         temp_dir = Path(tempfile.mkdtemp(prefix="chapter-trimmer-"))
-        save_selected_chapter(
-            page=page, input_video_path=input_video_path, chapter_list=chapter_list, output_dir=temp_dir
+        splitted_file_path_list = save_splitted_chapter(
+            input_video_path=input_video_path, chapter_list=chapter_list, output_dir=temp_dir
         )
 
         # chapterに分けた動画を読み込む
@@ -148,15 +168,11 @@ def main(page: ft.Page):
             ft.Container(
                 content=ft.ElevatedButton(
                     text="Save Selected Chapters",
-                    on_click=lambda e: save_selected_chapter(
-                        page=page,
-                        input_video_path=input_video_path,
-                        chapter_list=[
-                            chapter for chapter, tf in zip(chapter_list, [c.value for c in check_box_list]) if tf
-                        ],
-                        output_dir=input_video_path.parent,
+                    on_click=lambda e: merge_selected_chapter(
+                        splitted_file_path_list=splitted_file_path_list,
+                        selected_chapter_list=[i for i, c in enumerate(check_box_list) if c.value],
+                        original_video_file_path=input_video_path,
                         delete_dir=temp_dir,
-                        on_complete_open_dialog=True,
                     ),
                 ),
                 margin=20,
@@ -169,7 +185,7 @@ def main(page: ft.Page):
     page.overlay.append(file_picker)
     file_pick_button = ft.Container(
         ft.ElevatedButton(
-            "Pick Video file",
+            "Pick Video File",
             icon=ft.icons.UPLOAD_FILE,
             on_click=lambda _: file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.VIDEO),
         )
