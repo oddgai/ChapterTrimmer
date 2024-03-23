@@ -94,7 +94,7 @@ def main(page: ft.Page):
         current_status_content = ft.Container(
             content=ft.Column(
                 [
-                    ft.Text(f"Detecting Chapters in {e.files[0].name} ...", theme_style=ft.TextThemeStyle.TITLE_LARGE),
+                    ft.Text(f"Detecting chapters in {e.files[0].name} ...", theme_style=ft.TextThemeStyle.TITLE_LARGE),
                     ft.Text("Progress is displayed in the console.", theme_style=ft.TextThemeStyle.BODY_LARGE),
                     ft.ProgressBar(width=page.window_width, color="amber", bgcolor="#eeeeee"),
                 ]
@@ -130,7 +130,7 @@ def main(page: ft.Page):
         )
         current_status_content.content = ft.Column(
             [
-                ft.Text(f"{len(splitted_video_list)} Chapters Detected!", theme_style=ft.TextThemeStyle.TITLE_LARGE),
+                ft.Text(f"{len(splitted_video_list)} chapters detected!", theme_style=ft.TextThemeStyle.TITLE_LARGE),
                 ft.Text(
                     "Please select the chapters you want to save and press the button below.",
                     theme_style=ft.TextThemeStyle.BODY_LARGE,
