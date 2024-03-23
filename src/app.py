@@ -1,17 +1,9 @@
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
 import flet as ft
-from scenedetect import (
-    AdaptiveDetector,
-    ContentDetector,
-    SceneManager,
-    ThresholdDetector,
-    open_video,
-    split_video_ffmpeg,
-)
+from scenedetect import SceneManager, ThresholdDetector, open_video
 from scenedetect.frame_timecode import FrameTimecode
 from tqdm import tqdm
 
@@ -36,13 +28,11 @@ def detect_chapter(video_file_path: str) -> list[tuple[FrameTimecode, FrameTimec
 
 
 def main(page: ft.Page):
-    page.theme_mode = ft.ThemeMode.LIGHT
     page.title = "Chapter Trimmer"
-    page.spacing = 20
-    page.padding = 20
-    page.window_width = 800
-    page.window_height = 1200
-    page.scroll = ft.ScrollMode.ADAPTIVE
+    page.padding = 40
+    page.window_width = 1200
+    page.window_height = 900
+    page.scroll = ft.ScrollMode.AUTO
 
     def init_page(initial_container: ft.Container):
         page.clean()
@@ -85,9 +75,6 @@ def main(page: ft.Page):
             print(cmd)
             subprocess.run(cmd)
 
-        # 一時ディレクトリを削除
-        # shutil.rmtree(delete_dir)
-
         # 完了したらダイアログを表示
         complete_dialog = ft.AlertDialog(
             title=ft.Text(f"Trimmed video saved here; {str(output_file_path)}"),
@@ -101,31 +88,20 @@ def main(page: ft.Page):
     def load_videos(e: ft.FilePickerResultEvent):
         init_page(file_pick_button)
 
-        uploaded_videos = [ft.VideoMedia(f.path) for f in e.files]
-
-        original_video = ft.Video(
-            aspect_ratio=16 / 9,
-            autoplay=True,
-            filter_quality=ft.FilterQuality.HIGH,
-            playlist=uploaded_videos,
-            playlist_mode=ft.PlaylistMode.LOOP,
-        )
-
+        uploaded_video = [ft.VideoMedia(f.path) for f in e.files]
         current_status_content = ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("Detecting Chapters ...", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
+                    ft.Text("Detecting Chapters ...", theme_style=ft.TextThemeStyle.TITLE_LARGE),
+                    ft.Text("Progress is displayed in the console.", theme_style=ft.TextThemeStyle.BODY_LARGE),
                     ft.ProgressBar(width=page.window_width, color="amber", bgcolor="#eeeeee"),
                 ]
             )
         )
-
-        page.add(ft.Text("Original Video", theme_style=ft.TextThemeStyle.TITLE_LARGE))
-        page.add(original_video)
         page.add(current_status_content)
         page.update()
 
-        input_video_path = Path(uploaded_videos[0].resource)
+        input_video_path = Path(uploaded_video[0].resource)
         chapter_list = detect_chapter(str(input_video_path))
 
         temp_dir = Path(tempfile.mkdtemp(prefix="chapter-trimmer-"))
@@ -147,7 +123,9 @@ def main(page: ft.Page):
             )
 
         # 表示する
-        splitted_video_grid = ft.GridView(runs_count=2, spacing=40, run_spacing=20, child_aspect_ratio=16 / 10)
+        splitted_video_grid = ft.GridView(
+            runs_count=3, spacing=20, run_spacing=20, child_aspect_ratio=16 / 12, padding=ft.padding.only(right=20)
+        )
         current_status_content.content = ft.Column(
             [
                 ft.Text(f"{len(splitted_video_list)} Chapters Detected!", theme_style=ft.TextThemeStyle.TITLE_LARGE),
@@ -161,13 +139,20 @@ def main(page: ft.Page):
 
         check_box_list = [ft.Checkbox(value=False) for _ in range(len(splitted_video_list))]
         for check_box, splitted_video in zip(check_box_list, splitted_video_list):
-            splitted_video_grid.controls.append(ft.Column([check_box, splitted_video]))
+            splitted_video_grid.controls.append(
+                ft.Container(
+                    ft.Column([check_box, splitted_video]),
+                    bgcolor=ft.colors.GREY_200,
+                    border_radius=10,
+                    padding=10,
+                ),
+            )
 
         # submitボタンクリックで選択したチャプターの動画を保存する
         page.add(
             ft.Container(
                 content=ft.ElevatedButton(
-                    text="Save Selected Chapters",
+                    text="Merge Selected Chapters",
                     on_click=lambda e: merge_selected_chapter(
                         splitted_file_path_list=splitted_file_path_list,
                         selected_chapter_list=[i for i, c in enumerate(check_box_list) if c.value],
@@ -175,7 +160,7 @@ def main(page: ft.Page):
                         delete_dir=temp_dir,
                     ),
                 ),
-                margin=20,
+                margin=ft.margin.symmetric(vertical=10),
                 alignment=ft.alignment.center_right,
             ),
         )
@@ -188,9 +173,11 @@ def main(page: ft.Page):
             "Pick Video File",
             icon=ft.icons.UPLOAD_FILE,
             on_click=lambda _: file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.VIDEO),
-        )
+        ),
+        padding=ft.padding.only(bottom=20),
     )
     page.add(file_pick_button)
+    page.update()
 
 
 ft.app(target=main)
