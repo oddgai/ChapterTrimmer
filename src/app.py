@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -66,14 +67,15 @@ def main(page: ft.Page):
         )
         selected_chapter_file_path_list = [splitted_file_path_list[idx] for idx in selected_chapter_list]
         with tempfile.NamedTemporaryFile(delete=False) as tf:
-            print(tf.name)
-            with open(tf.name, "w") as f:
+            with open(tf.name, "w", encoding="utf-8") as f:
                 for file_path in selected_chapter_file_path_list:
-                    f.write(f"file {file_path.as_posix()}\n")
+                    f.write(f"file '{file_path.as_posix()}'\n")
 
             cmd = f'ffmpeg -y -f concat -safe 0 -i "{tf.name}" -c copy "{output_file_path}"'
             print(cmd)
             subprocess.run(cmd)
+
+        shutil.rmtree(delete_dir)
 
         # 完了したらダイアログを表示
         complete_dialog = ft.AlertDialog(
@@ -88,11 +90,11 @@ def main(page: ft.Page):
     def load_videos(e: ft.FilePickerResultEvent):
         init_page(file_pick_button)
 
-        uploaded_video = [ft.VideoMedia(f.path) for f in e.files]
+        uploaded_video = ft.VideoMedia(e.files[0].path)
         current_status_content = ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("Detecting Chapters ...", theme_style=ft.TextThemeStyle.TITLE_LARGE),
+                    ft.Text(f"Detecting Chapters in {e.files[0].name} ...", theme_style=ft.TextThemeStyle.TITLE_LARGE),
                     ft.Text("Progress is displayed in the console.", theme_style=ft.TextThemeStyle.BODY_LARGE),
                     ft.ProgressBar(width=page.window_width, color="amber", bgcolor="#eeeeee"),
                 ]
@@ -101,7 +103,7 @@ def main(page: ft.Page):
         page.add(current_status_content)
         page.update()
 
-        input_video_path = Path(uploaded_video[0].resource)
+        input_video_path = Path(uploaded_video.resource)
         chapter_list = detect_chapter(str(input_video_path))
 
         temp_dir = Path(tempfile.mkdtemp(prefix="chapter-trimmer-"))
@@ -168,6 +170,7 @@ def main(page: ft.Page):
 
     file_picker = ft.FilePicker(on_result=load_videos)
     page.overlay.append(file_picker)
+
     file_pick_button = ft.Container(
         ft.ElevatedButton(
             "Pick Video File",
