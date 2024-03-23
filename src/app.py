@@ -80,7 +80,7 @@ def main(page: ft.Page):
         # 完了したらダイアログを表示
         complete_dialog = ft.AlertDialog(
             title=ft.Text(f"Trimmed video saved here; {str(output_file_path)}"),
-            content=ft.Text("Load other video if necessary."),
+            content=ft.Text("Load other video if necessary", theme_style=ft.TextThemeStyle.BODY_LARGE),
             on_dismiss=init_page(file_pick_button),
         )
         page.dialog = complete_dialog
@@ -88,14 +88,17 @@ def main(page: ft.Page):
         page.update()
 
     def load_videos(e: ft.FilePickerResultEvent):
+        # TODO: ファイルが読み込まれなかったとき（ダイアログがキャンセルされたとき）の処理を書く
+
+        # 2回目以降にファイルを読み込んだときのためにページを初期状態に戻す
         init_page(file_pick_button)
 
         uploaded_video = ft.VideoMedia(e.files[0].path)
         current_status_content = ft.Container(
             content=ft.Column(
                 [
-                    ft.Text(f"Detecting chapters in {e.files[0].name} ...", theme_style=ft.TextThemeStyle.TITLE_LARGE),
-                    ft.Text("Progress is displayed in the console.", theme_style=ft.TextThemeStyle.BODY_LARGE),
+                    ft.Text(f"Detecting chapters in {e.files[0].name}", theme_style=ft.TextThemeStyle.TITLE_LARGE),
+                    ft.Text("Progress is displayed in the console", theme_style=ft.TextThemeStyle.BODY_LARGE),
                     ft.ProgressBar(width=page.window_width, color="amber", bgcolor="#eeeeee"),
                 ]
             )
@@ -111,7 +114,10 @@ def main(page: ft.Page):
             input_video_path=input_video_path, chapter_list=chapter_list, output_dir=temp_dir
         )
 
+        # TODO: チャプター検出に失敗した場合の処理を書く
+
         # chapterに分けた動画を読み込む
+        # TODO: 読み込めなかった場合の処理を書く
         splitted_video_list = []
         for splitted_file in temp_dir.glob(f"*{input_video_path.suffix}"):
             splitted_video_list.append(
@@ -132,7 +138,7 @@ def main(page: ft.Page):
             [
                 ft.Text(f"{len(splitted_video_list)} chapters detected!", theme_style=ft.TextThemeStyle.TITLE_LARGE),
                 ft.Text(
-                    "Please select the chapters you want to save and press the button below.",
+                    "Please select the chapters you want to save and press the button below",
                     theme_style=ft.TextThemeStyle.BODY_LARGE,
                 ),
             ]
@@ -151,10 +157,13 @@ def main(page: ft.Page):
             )
 
         # submitボタンクリックで選択したチャプターの動画を保存する
+        # TODO: 何もチェックされなかった場合の処理を書く
+        # TODO: 保存に失敗した場合の処理を書く
         page.add(
             ft.Container(
                 content=ft.ElevatedButton(
                     text="Merge Selected Chapters",
+                    icon=ft.icons.SAVE_ALT,
                     on_click=lambda e: merge_selected_chapter(
                         splitted_file_path_list=splitted_file_path_list,
                         selected_chapter_list=[i for i, c in enumerate(check_box_list) if c.value],
@@ -174,7 +183,7 @@ def main(page: ft.Page):
     file_pick_button = ft.Container(
         ft.ElevatedButton(
             "Pick Video File",
-            icon=ft.icons.UPLOAD_FILE,
+            icon=ft.icons.VIDEO_FILE_OUTLINED,
             on_click=lambda _: file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.VIDEO),
         ),
         padding=ft.padding.only(bottom=20),
