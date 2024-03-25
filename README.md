@@ -4,6 +4,9 @@ The app automatically detect chapters from consecutive black/white frames in a v
 
 ![demo](https://github.com/oddgai/ChapterTrimmer/assets/45445604/508e0a0c-eb95-4a15-9464-c5f04617d4cc)
 
+## Download
+
+https://github.com/oddgai/ChapterTrimmer/releases
 
 ## How to use
 
