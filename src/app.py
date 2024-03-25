@@ -20,16 +20,13 @@ def detect_chapter(video_file_path: str) -> list[tuple[FrameTimecode, FrameTimec
     # detect Black
     scene_manager.add_detector(ThresholdDetector(threshold=12, method=ThresholdDetector.Method.FLOOR))
 
-    # TODO: なぜかエラーになるので直す
-    # scene_manager.add_detector(AdaptiveDetector)
-
-    scene_manager.detect_scenes(frame_source=video, show_progress=True)
+    scene_manager.detect_scenes(frame_source=video, show_progress=True, frame_skip=1)
     chapter_list = scene_manager.get_scene_list()
     return chapter_list
 
 
 def main(page: ft.Page):
-    page.title = "Chapter Trimmer"
+    page.title = "ChapterTrimmer"
     page.padding = 40
     page.window_width = 1200
     page.window_height = 900
@@ -79,7 +76,7 @@ def main(page: ft.Page):
 
         # 完了したらダイアログを表示
         complete_dialog = ft.AlertDialog(
-            title=ft.Text(f"Trimmed video saved here; {str(output_file_path)}"),
+            title=ft.Text(f"Trimmed video saved as {str(output_file_path)}", selectable=True),
             content=ft.Text("Load other video if necessary", theme_style=ft.TextThemeStyle.BODY_LARGE),
             on_dismiss=init_page(file_pick_button),
         )
@@ -88,8 +85,6 @@ def main(page: ft.Page):
         page.update()
 
     def load_videos(e: ft.FilePickerResultEvent):
-        # TODO: ファイルが読み込まれなかったとき（ダイアログがキャンセルされたとき）の処理を書く
-
         # 2回目以降にファイルを読み込んだときのためにページを初期状態に戻す
         init_page(file_pick_button)
 
@@ -114,10 +109,7 @@ def main(page: ft.Page):
             input_video_path=input_video_path, chapter_list=chapter_list, output_dir=temp_dir
         )
 
-        # TODO: チャプター検出に失敗した場合の処理を書く
-
         # chapterに分けた動画を読み込む
-        # TODO: 読み込めなかった場合の処理を書く
         splitted_video_list = []
         for splitted_file in temp_dir.glob(f"*{input_video_path.suffix}"):
             splitted_video_list.append(
@@ -126,7 +118,7 @@ def main(page: ft.Page):
                     autoplay=False,
                     filter_quality=ft.FilterQuality.HIGH,
                     playlist=[ft.VideoMedia(str(splitted_file))],
-                    playlist_mode=ft.PlaylistMode.SINGLE,
+                    playlist_mode=ft.PlaylistMode.NONE,
                 )
             )
 
@@ -157,8 +149,6 @@ def main(page: ft.Page):
             )
 
         # submitボタンクリックで選択したチャプターの動画を保存する
-        # TODO: 何もチェックされなかった場合の処理を書く
-        # TODO: 保存に失敗した場合の処理を書く
         page.add(
             ft.Container(
                 content=ft.ElevatedButton(

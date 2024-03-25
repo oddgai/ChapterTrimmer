@@ -1,17 +1,36 @@
 # ChapterTrimmer
 
-## requirements
+The app automatically detect chapters from consecutive black/white frames in a video and save only the selected chapters.
 
-- ffmpeg
+## How to use
 
-## Hot reload
+0. Preparation: Install [ffmpeg](https://ffmpeg.org/) before launching this app
+1. Launch the application
+    - At the same time, a console will be launched that displays the progress of chapter detection
+2. Select your video
+3. Please wait for chapter detection
+4. Select the chapters you want to keep in the video and press the Merge button!
+    - If the original file is `/hoge/sample.mp4`, it will be saved as `/hoge/sample_edit.mp4`
+
+
+## For Developers
+
+### Setup
+
+Install [Rye](https://rye-up.com/) and run first sync
 
 ```
-rye run python src/app.py -d
+$ rye sync
 ```
 
-## How to package by PyInstaller
+### Hot reload
 
 ```
-pyinstaller src/app.py --onefile --specpath src/ --name ChapterTrimmer --icon assets/icon.ico
+$ rye run python src/app.py -d
+```
+
+### How to package by PyInstaller
+
+```
+$ pyinstaller src/app.py --onefile --specpath src/ --name ChapterTrimmer --icon assets/icon.ico
 ```
