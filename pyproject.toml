@@ -1,5 +1,5 @@
 [project]
-name = "chaptertrimmer"
+name = "Chapter Trimmer"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
@@ -7,6 +7,8 @@ authors = [
 ]
 dependencies = [
     "flet>=0.21.1",
+    "scenedetect[opencv]>=0.6.3",
+    "pyinstaller>=6.5.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -23,4 +25,10 @@ dev-dependencies = []
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/chaptertrimmer"]
+packages = ["./"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 120
