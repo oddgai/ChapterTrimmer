@@ -2,6 +2,11 @@
 
 The app automatically detect chapters from consecutive black/white frames in a video and save only the selected chapters.
 
+## Demo
+
+Below `sample.mp4` file is composed of 5 videos connected by black/white frames.
+ChapterTrimmer detect 5 chapters from this video and save only the chapters you need!
+
 ![demo](https://github.com/oddgai/ChapterTrimmer/assets/45445604/508e0a0c-eb95-4a15-9464-c5f04617d4cc)
 
 ## Download
